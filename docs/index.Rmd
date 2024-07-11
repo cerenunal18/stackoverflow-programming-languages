@@ -1,0 +1,258 @@
+---
+title: 'Project: Rise and Fall of Programming Languages'
+author: "Ceren Ünal"
+date: "2024-07-11"
+output: 
+  html_document:
+    #code_folding: hide
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    toc_collapsed: false
+    theme: flatly
+    number_sections: yes
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Import Data
+
+```{r}
+library(tidyverse)
+by_tag_year <- read_csv("by_tag_year.csv")
+```
+
+## About the data set
+
+Stack Overflow is a programming question and answer site with more than 16 million questions on programming topics. Based on the tags used to label questions over the years, "by_tag_year" data set provides a look into the popularity of different topics by year. It includes both the number of questions asked in that tag in that year, and the total number of questions asked in that year. 
+
+By measuring the number of questions about each technology, we can get an approximate sense of how many people are using it. Thus, in this project, we are going to use open data from the Stack Exchange Data Explorer to examine the relative popularity of languages like R, Python, Java and Javascript have changed over time.
+
+# Explore Data 
+
+```{r}
+glimpse(by_tag_year)
+```
+
+We have 4 variables and 40,518 observations. 1 character and 3 numeric variables are present. Year can be converted to a factor.   
+
+```{r}
+summary(by_tag_year)
+```
+
+The data set includes Stack Overflow data from 2008 to 2018. No missing values.  
+
+
+```{r}
+length(unique(by_tag_year$tag))
+```
+
+There are 4080 unique tags.  
+
+```{r}
+by_tag_year %>% 
+  ggplot(aes(year, year_total)) +
+  geom_col() +
+  scale_y_continuous(labels = scales::comma) +
+  labs(title = "Total Number of Questions by Year", y = "Number of Questions")
+```
+
+The number of questions have grown steadily from 2008 (founding of Stack Overflow) until 2013. After 2013, we still see growth but it has slowed down very significantly. 
+
+# Question: What are the most popular programming languages of All Time? 
+
+First, let's find the top 10 programming languages (excluding tags that are not a programming language) based on the total number of questions. 
+
+```{r}
+# Find total number of questions for each tag
+top10_tags <- by_tag_year %>%
+filter(!tag %in% c("android", "ios", "jquery", "mysql", "asp.net","ruby-on-rails")) %>% #filter out operating systems
+group_by(tag)  %>% 
+summarize(tag_total = sum(number))  %>% 
+arrange(desc(tag_total)) %>% 
+head(10)
+
+
+top10_tags
+```
+
+When it comes to analyzing their popularity, looking at the percentage of the tag against the total number of questions asked that year will be a better choice than simply looking at the numbers. Let's create a new column for this purpose.  
+
+```{r}
+# Add fraction column
+by_tag_year_fraction <- by_tag_year  %>% 
+mutate(fraction = number/year_total)
+```
+
+```{r}
+# Create vector of tag names
+top10_tag_names <- top10_tags$tag
+
+
+# Plot tags over time on a line plot using color to represent tag
+by_tag_year_fraction  %>% 
+  filter(tag %in% top10_tag_names) %>% 
+  ggplot(aes(year, fraction, color = tag)) +
+  geom_line(size = 1) +
+  scale_x_continuous(breaks = c(2008, 2010, 2012, 2014, 2016, 2018)) +
+  labs(title = "Top 10 Programming Languages 2008-2018", color = "Language")
+
+```
+
+It appears that many of the all time most popular programming languages have actually been declining in the past few years.  
+
+With the exception of Python and Javascript, these languages have either been falling or remaining stable rather than increasing. C# in particular shows a very steep downwards trend.  
+
+
+# Question: What is the most popular programming language in each year?
+
+```{r}
+
+by_tag_year_fraction %>% 
+  group_by(year) %>% 
+  slice_max(fraction, n=1) %>% 
+  ggplot(aes(year, fraction, fill = tag)) +
+  geom_col() +
+  labs(title = "Most Popular Tag between 2008-2018")
+```
+
+It seems that C# was the most commonly searched programming language in the early days of Stack Overflow, until 2011. From 2013 and on wards, we see that Javascript reigns supreme.   
+
+# Question: The popularity of R over time
+
+```{r}
+# Create a line plot of fraction over time
+by_tag_year_fraction  %>% 
+  filter(tag == "r") %>% 
+  ggplot(aes(year, fraction)) +
+  geom_line(size = 1) +
+  labs(title = "Popularity of R between 2008-2018")  +
+  scale_x_continuous(breaks = c(2008, 2010, 2012, 2014, 2016, 2018))
+```
+
+Similar to Python, R has been gaining significant amount of attention over the past few years, demonstrating a strong growth trend.  
+
+
+What about R packages?   
+
+
+```{r}
+# A vector of selected tags
+r_packages <- c("tidyverse", "tidyr", "dplyr", "ggplot2", "purrr", "stringr", "forcats", "readr", "tibble")
+
+by_tag_year_fraction  %>% 
+  filter(tag %in% r_packages) %>% 
+  ggplot(aes(year, fraction, color = tag)) +
+  labs(title = "Popularity of Tidyverse Packages between 2008-2018")  +
+  scale_x_continuous(breaks = c(2008, 2010, 2012, 2014, 2016, 2018)) +
+   geom_line(size = 1)
+```
+
+Interestingly, there are no tags for Tidyverse packages other than "ggplot2", "dplyr" and "tidyr". It is possible that those questions all fall under the broader "tidyverse" tag.  
+
+Regardless, "ggplot2", the oldest of all Tidyverse packages seems to have sustained its status as the most popular package over the years. 
+
+
+# Question: The popularity of mobile operating systems over time  
+
+```{r}
+# Get tags of interest
+mobile_os_tags <- c("android", "ios", "windows-phone")
+
+by_tag_year_fraction  %>% 
+  filter(tag %in% mobile_os_tags) %>% 
+  ggplot(aes(year, fraction, color = tag)) +
+  labs(title = "Popularity of Mobile OS between 2008-2018")  +
+  scale_x_continuous(breaks = c(2008, 2010, 2012, 2014, 2016, 2018)) +
+  geom_line(size = 1)
+```
+
+Android is much more frequently asked about compared to iOS, with both operating systems seeing  a decline in questions since 2012. Windows phone, on the other hand, seems to be rarely discussed since the beginning.  
+
+# Question: The popularity of desktop operating systems over time  
+
+```{r}
+# Get tags of interest
+desktop_os_tags <- c("windows", "macos", "linux")
+
+by_tag_year_fraction  %>% 
+  filter(tag %in% desktop_os_tags) %>% 
+  ggplot(aes(year, fraction, color = tag)) +
+  labs(title = "Popularity of Mobile OS between 2008-2018")  +
+  scale_x_continuous(breaks = c(2008, 2010, 2012, 2014, 2016, 2018)) +
+  geom_line(size = 1)
+```
+
+Windows has seen a surprising decline from 2008 to 2009. MacOS and Linux have not do not follow a significant trend, though Linux, surprisingly receive way more attention from the Stack Overflow community since 20122 compared to the other two.  
+
+# Question: The most popular Google apps  
+
+```{r}
+by_tag_year_google <- by_tag_year %>%
+  filter(grepl('google', tag)) #stringr
+
+length(unique(by_tag_year_google$tag)) #count unique values
+  
+```
+
+There are 58 unique tags for google apps, let's look at which ones are the most popular.  
+
+```{r}
+by_tag_year_google %>% 
+  group_by(year) %>% 
+  mutate(google_total = sum(number)) %>% #sum up only google in new row
+  ungroup() %>% 
+  mutate(google_fraction = number/google_total) %>% #calculate % among only google questions
+  arrange(desc(google_fraction)) %>% 
+  group_by(year) %>% 
+  slice_max(google_fraction, n=1) %>% #take top 1
+  ggplot(aes(year, google_fraction, fill = tag)) +
+  geom_col(size = 1)  +
+  labs(title = "Most popular Google app between 2008-2018", y = "fraction")  +
+  scale_x_continuous(breaks = c(2008, 2010, 2012, 2014, 2016, 2018))
+```
+
+It is very intriguing to see Google Maps comprised most of the questions asked in this category from 2013 to 2016. It seems that lots of people were developing for Maps during this period. 
+
+
+# Question: SDK questions over the years  
+
+```{r}
+by_tag_year_sdk <- by_tag_year %>%
+  filter(grepl('sdk', tag)) #stringr
+
+length(unique(by_tag_year_sdk$tag)) #count unique values
+  
+```
+
+Another tag which might be work a look are SDKs, there are 13 tags for SDK questions. Let's see if these have increased, as more and more people began using smartphones and mobile apps.  
+
+```{r}
+by_tag_year_sdk %>% 
+  group_by(year) %>% 
+  ggplot(aes(year, number)) +
+  geom_col()  +
+  labs(title = "SDK questions between 2008-2018", y = "count")  +
+  scale_x_continuous(breaks = c(2008, 2010, 2012, 2014, 2016, 2018))
+```
+
+The number of questions have indeed increased from 2008 to 2013, but then lost its momentum and began a downwards trend. Let's see if this is reflected in the percentage of these SDK related questions among all questions.  
+
+```{r}
+by_tag_year_sdk %>% 
+  group_by(year) %>% 
+  reframe(sdk_total = sum(number), 
+  sdk_fraction = sdk_total/year_total) %>% 
+  group_by(year) %>% 
+  slice_head(n=1) %>% 
+  ggplot(aes(year, sdk_fraction)) +
+  geom_line() +
+  labs(title = "% of SDK questions between 2008-2018", y = "fraction")  +
+  scale_x_continuous(breaks = c(2008, 2010, 2012, 2014, 2016, 2018))
+  
+```
+
+Same as the number of questions, the proportion of this tag against the total also shows a decline after 2013. The interest peaked around 2013, and then steeply declined for unknown reasons.    
